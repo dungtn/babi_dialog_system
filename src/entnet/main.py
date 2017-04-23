@@ -1,7 +1,9 @@
 import os, sys
+
 # fix relative import
-sys.path.append(os.path.dirname(os.path.realpath(__file__)).rsplit('/',2)[0])
-print(sys.path)
+PROJECT_DIR = os.path.dirname(os.path.realpath(__file__)).rsplit('/', 2)[0]
+sys.path.append(PROJECT_DIR)
+
 import data.data_utils as data_utils
 import models.entnet as entnet
 
@@ -77,6 +79,8 @@ def parse_args(args):
                         help='you know what batch size means!')
     parser.add_argument('--epochs', required=False, type=int, default=200,
                         help='num iteration of training over train set')
+    parser.add_argument('--num_blocks', required=False, type=int, default=20,
+                        help='num of memory blocks')
     parser.add_argument('--eval_interval', required=False, type=int, default=5,
                         help='num iteration of training over train set')
     parser.add_argument('--log_file', required=False, type=str, default='log.txt',
@@ -170,8 +174,9 @@ def main(args):
     model = entnet.EntNetDialog(
                 batch_size=BATCH_SIZE,
                 vocab_size=vocab_size,
-                candidates_size=n_cand,
                 sentence_size=sentence_size,
+                candidates_size=n_cand,
+                num_blocks=args['num_blocks'],
                 embedding_size=100,
                 candidates_vec=candidates_vec,
             )
