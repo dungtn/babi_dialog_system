@@ -1,3 +1,7 @@
+import os, sys
+# fix relative import
+sys.path.append(os.path.dirname(os.path.realpath(__file__)).rsplit('/',2)[0])
+print(sys.path)
 import data.data_utils as data_utils
 import models.entnet as entnet
 
@@ -12,8 +16,8 @@ import pickle as pkl
 import sys
 
 
-DATA_DIR = '../../data/dialog-bAbI-tasks/'
-P_DATA_DIR = '../../data/processed/'
+DATA_DIR = 'data/dialog-bAbI-tasks/'
+P_DATA_DIR = 'data/processed/'
 BATCH_SIZE = 32
 CKPT_DIR= 'ckpt/'
 
