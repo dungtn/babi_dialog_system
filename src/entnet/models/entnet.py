@@ -11,19 +11,9 @@ from .dynamic_memory_cell import DynamicMemoryCell
 from .model_utils import get_sequence_length
 
 
-
-
-def get_input_encoding(embedding, scope=None):
-    with tf.variable_scope(scope, 'Encoding', initializer=tf.constant_initializer(1.0)):
-        _, _, max_sentence_length, _ = embedding.get_shape().as_list()
-        positional_mask = tf.get_variable('positional_mask', [max_sentence_length, 1])
-        encoded_input = tf.reduce_sum(embedding * positional_mask, reduction_indices=[2])
-        return encoded_input
-
-
 class EntNetDialog(object):
     """Recurrent Entity Network."""
-    def __init__(self, batch_size, vocab_size, candidates_size, sentence_size, num_blocks, embedding_size,
+    def __init__(self, batch_size, vocab_size, memory_size, candidates_size, sentence_size, num_blocks, embedding_size,
                  candidates_vec,
                  clip_gradients=40.0,
                  learning_rate_init=1e-2,
@@ -38,6 +28,8 @@ class EntNetDialog(object):
     
             vocab_size: The size of the vocabulary (should include the nil word). The nil word
             one-hot encoding should be 0.
+            
+            memory_size: Max number of story per example.
     
             sentence_size: The max size of a sentence in the data. All sentences should be padded
             to this length. If padding is required it should be done with nil one-hot encoding (0).
@@ -63,6 +55,7 @@ class EntNetDialog(object):
 
         self._batch_size = batch_size
         self._vocab_size = vocab_size
+        self._memory_size = memory_size
         self._candidates_size = candidates_size
         self._sentence_size = sentence_size
         self._num_blocks = num_blocks
@@ -124,13 +117,14 @@ class EntNetDialog(object):
             self.output_embedding_masked = output_embedding * output_embedding_mask
 
     def _inference(self, stories, queries):
+        queries = tf.expand_dims(queries, 1)
         with tf.variable_scope(self._name):
             story_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, stories)
             query_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, queries)
 
             # Input Module
-            encoded_story = get_input_encoding(story_embedding, 'StoryEncoding')
-            encoded_query = get_input_encoding(query_embedding, 'QueryEncoding')
+            encoded_story = self.get_input_encoding(story_embedding, 'StoryEncoding')
+            encoded_query = self.get_input_encoding(query_embedding, 'QueryEncoding')
 
             # Memory Module
             # We define the keys outside of the cell so they may be used for state initialization.
@@ -151,13 +145,19 @@ class EntNetDialog(object):
             output = self.get_output(last_state, encoded_query)
             return output
 
+    def get_input_encoding(self, embedding, scope=None):
+        with tf.variable_scope(scope, 'Encoding', initializer=tf.constant_initializer(1.0)):
+            positional_mask = tf.get_variable('positional_mask', [self._sentence_size, 1])
+            encoded_input = tf.reduce_sum(embedding * positional_mask, reduction_indices=[2])
+            return encoded_input
+
     def get_output(self, last_state, encoded_query, scope=None):
         """
         Implementation of Section 2.3, Equation 6. This module is also described in more detail here:
         [End-To-End Memory Networks](https://arxiv.org/abs/1502.01852).
         """
         with tf.variable_scope(scope, 'Output', initializer=self._normal_init):
-            last_state = tf.pack(tf.split(1, self._num_blocks, last_state), axis=1)
+            last_state = tf.stack(tf.split(last_state, self._num_blocks, 1), axis=1)
 
             # Use the encoded_query to attend over memories (hidden states of dynamic last_state cell blocks)
             attention = tf.reduce_sum(last_state * encoded_query, reduction_indices=[2])

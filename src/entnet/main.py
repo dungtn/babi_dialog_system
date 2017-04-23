@@ -18,8 +18,8 @@ import pickle as pkl
 import sys
 
 
-DATA_DIR = 'data/dialog-bAbI-tasks/'
-P_DATA_DIR = 'data/processed/'
+DATA_DIR = PROJECT_DIR + '/data/dialog-bAbI-tasks/'
+P_DATA_DIR = PROJECT_DIR + '/data/processed/'
 BATCH_SIZE = 32
 CKPT_DIR= 'ckpt/'
 
@@ -174,6 +174,7 @@ def main(args):
     model = entnet.EntNetDialog(
                 batch_size=BATCH_SIZE,
                 vocab_size=vocab_size,
+                memory_size=memory_size,
                 sentence_size=sentence_size,
                 candidates_size=n_cand,
                 num_blocks=args['num_blocks'],
