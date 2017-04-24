@@ -160,18 +160,16 @@ def vectorize_data(data, word_idx, sentence_size, batch_size, candidates_size, m
     A = []
     data.sort(key=lambda x:len(x[0]),reverse=True)
     for i, (story, query, answer) in enumerate(data):
-        if i%batch_size==0:
-            memory_size=max(1,min(max_memory_size,len(story)))
         ss = []
         for i, sentence in enumerate(story, 1):
             ls = max(0, sentence_size - len(sentence))
             ss.append([word_idx[w] if w in word_idx else 0 for w in sentence] + [0] * ls)
 
         # take only the most recent sentences that fit in memory
-        ss = ss[::-1][:memory_size][::-1]
+        ss = ss[::-1][:max_memory_size][::-1]
 
         # pad to memory_size
-        lm = max(0, memory_size - len(ss))
+        lm = max(0, max_memory_size - len(ss))
         for _ in range(lm):
             ss.append([0] * sentence_size)
 

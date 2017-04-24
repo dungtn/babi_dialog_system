@@ -188,7 +188,7 @@ def main(args):
         # training starts here
         epochs = args['epochs']
         eval_interval = args['eval_interval']
-        #
+
         # training and evaluation loop
         print('\n>> Training started!\n')
         # write log to file

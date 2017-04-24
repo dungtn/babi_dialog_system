@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 
+import numpy as np
 import tensorflow as tf
 from six.moves import range
 
@@ -99,8 +100,8 @@ class EntNetDialog(object):
         self.saver = tf.train.Saver(max_to_keep=1)
 
     def _build_inputs(self):
-        self._stories = tf.placeholder(tf.int32, [None, None, self._sentence_size], name="stories")
-        self._queries = tf.placeholder(tf.int32, [None, self._sentence_size], name="queries")
+        self._stories = tf.placeholder(tf.int32, [None, self._memory_size * self._sentence_size], name="stories")
+        self._queries = tf.placeholder(tf.int32, [None, 1, self._sentence_size], name="queries")
         self._answers = tf.placeholder(tf.int32, [None], name="answers")
 
     def _build_vars(self):
@@ -117,12 +118,18 @@ class EntNetDialog(object):
             self.output_embedding_masked = output_embedding * output_embedding_mask
 
     def _inference(self, stories, queries):
-        queries = tf.expand_dims(queries, 1)
+        # stories = tf.Print(stories, [stories], message="Story: ")
+        # queries = tf.expand_dims(queries, axis=1)
         with tf.variable_scope(self._name):
             story_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, stories)
             query_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, queries)
 
+            # real sequence length - without padding
+            sequence_length = get_sequence_length(story_embedding)
+            # sequence_length = tf.Print(sequence_length, [sequence_length], message="Sequence length: ")
+
             # Input Module
+            story_embedding = tf.reshape(story_embedding, [-1, self._memory_size, self._sentence_size, self._embedding_size])
             encoded_story = self.get_input_encoding(story_embedding, 'StoryEncoding')
             encoded_query = self.get_input_encoding(query_embedding, 'QueryEncoding')
 
@@ -136,7 +143,6 @@ class EntNetDialog(object):
 
             # Recurrence
             initial_state = cell.zero_state(self._batch_size, tf.float32)
-            sequence_length = get_sequence_length(encoded_story)
             _, last_state = tf.nn.dynamic_rnn(cell, encoded_story,
                                               sequence_length=sequence_length,
                                               initial_state=initial_state)
@@ -211,7 +217,10 @@ class EntNetDialog(object):
         Returns:
             loss: floating-point number, the loss computed for the batch
         """
-        feed_dict = {self._stories: stories, self._queries: queries, self._answers: answers}
+        flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
+        expanded_queries = np.expand_dims(queries, axis=1)
+        feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries, self._answers: answers}
+        # feed_dict = {self._stories: stories, self._queries: queries, self._answers: answers}
         loss, _ = self._sess.run([self.loss_op, self.train_op], feed_dict=feed_dict)
         return loss
 
@@ -225,5 +234,8 @@ class EntNetDialog(object):
         Returns:
             answers: Tensor (None, vocab_size)
         """
-        feed_dict = {self._stories: stories, self._queries: queries}
+        flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
+        expanded_queries = np.expand_dims(queries, axis=1)
+        feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries}
+        # feed_dict = {self._stories: stories, self._queries: queries}
         return self._sess.run(self.predict_op, feed_dict=feed_dict)
