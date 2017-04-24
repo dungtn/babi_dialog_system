@@ -217,6 +217,7 @@ class EntNetDialog(object):
         Returns:
             loss: floating-point number, the loss computed for the batch
         """
+        self._batch_size = len(stories)
         flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
         expanded_queries = np.expand_dims(queries, axis=1)
         feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries, self._answers: answers}
@@ -234,6 +235,7 @@ class EntNetDialog(object):
         Returns:
             answers: Tensor (None, vocab_size)
         """
+        self._batch_size = len(stories)
         flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
         expanded_queries = np.expand_dims(queries, axis=1)
         feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries}
