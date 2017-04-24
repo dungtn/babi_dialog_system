@@ -205,12 +205,15 @@ def get_batches(train_data, val_data, test_data, metadata, batch_size):
     print("Test Size", n_test)
     batches = zip(range(0, n_train-batch_size, batch_size), range(batch_size, n_train, batch_size))
 
-    # package train set 
-    train = { 's' : trainS, 'q' : trainQ, 'a' : trainA } # you have a better idea?
+    last_train_ix = n_train % batch_size
+    last_val_ix = n_val % batch_size
+    last_test_ix = n_test % batch_size
+    # package train set
+    train = { 's' : trainS[:-last_train_ix], 'q' : trainQ[:-last_train_ix], 'a' : trainA[:-last_train_ix] } # you have a better idea?
     # package validation set 
-    val =   { 's' : valS, 'q' : valQ, 'a' : valA } 
+    val =   { 's' : valS[:-last_val_ix], 'q' : valQ[:-last_val_ix], 'a' : valA[:-last_val_ix] }
     # package test set 
-    test =   { 's' : testS, 'q' : testQ, 'a' : testA }
+    test =   { 's' : testS[:-last_test_ix], 'q' : testQ[:-last_test_ix], 'a' : testA[:-last_test_ix] }
  
     return train, val, test, [(start, end) for start, end in batches]
 

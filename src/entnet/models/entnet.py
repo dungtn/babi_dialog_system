@@ -120,9 +120,13 @@ class EntNetDialog(object):
     def _inference(self, stories, queries):
         # stories = tf.Print(stories, [stories], message="Story: ")
         # queries = tf.expand_dims(queries, axis=1)
+        print(stories.get_shape())
+        print(queries.get_shape())
         with tf.variable_scope(self._name):
             story_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, stories)
             query_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, queries)
+            print(story_embedding.get_shape())
+            print(query_embedding.get_shape())
 
             # real sequence length - without padding
             sequence_length = get_sequence_length(story_embedding)
@@ -132,6 +136,8 @@ class EntNetDialog(object):
             story_embedding = tf.reshape(story_embedding, [-1, self._memory_size, self._sentence_size, self._embedding_size])
             encoded_story = self.get_input_encoding(story_embedding, 'StoryEncoding')
             encoded_query = self.get_input_encoding(query_embedding, 'QueryEncoding')
+            print(encoded_story.get_shape())
+            print(encoded_query.get_shape())
 
             # Memory Module
             # We define the keys outside of the cell so they may be used for state initialization.
@@ -143,6 +149,7 @@ class EntNetDialog(object):
 
             # Recurrence
             initial_state = cell.zero_state(self._batch_size, tf.float32)
+            # encoded_story = tf.Print(encoded_story, [encoded_story], message="Encoded story: ")
             _, last_state = tf.nn.dynamic_rnn(cell, encoded_story,
                                               sequence_length=sequence_length,
                                               initial_state=initial_state)

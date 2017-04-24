@@ -57,6 +57,8 @@ class DynamicMemoryCell(tf.contrib.rnn.RNNCell):
         return self._activation(state_U + key_V + inputs_W)
 
     def __call__(self, inputs, state, scope=None):
+        inputs_shape = tf.shape(inputs)
+        inputs_shape = tf.Print(inputs_shape, [inputs_shape], message="Mem inputs shape: ")
         with tf.variable_scope(scope or type(self).__name__, initializer=self._initializer):
             # Split the hidden state into blocks (each U, V, W are shared across blocks).
             state = tf.split(state, self._num_blocks, 1)

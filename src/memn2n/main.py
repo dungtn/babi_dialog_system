@@ -224,7 +224,7 @@ def main(args):
                 q = train['q'][start:end]
                 a = train['a'][start:end]
                 cost_total += model.batch_fit(s, q, a)
-            
+
             if i%eval_interval == 0 and i:
                 train_preds = batch_predict(model, train['s'], train['q'], len(train['s']), batch_size=BATCH_SIZE)
                 val_preds = batch_predict(model, val['s'], val['q'], len(val['s']), batch_size=BATCH_SIZE)
