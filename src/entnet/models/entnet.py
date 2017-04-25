@@ -116,17 +116,21 @@ class EntNetDialog(object):
             # output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._candidates_size)], dtype=tf.float32,
             #                                     shape=[self._candidates_size, 1])
             # self.output_embedding_masked = output_embedding * output_embedding_mask
+            output_embedding = tf.get_variable('output_embedding', [self._vocab_size, self._embedding_size])
+            output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._vocab_size)], dtype=tf.float32,
+                                                shape=[self._vocab_size, 1])
+            self.output_embedding_masked = output_embedding * output_embedding_mask
 
     def _inference(self, stories, queries):
         # stories = tf.Print(stories, [stories], message="Story: ")
         # queries = tf.expand_dims(queries, axis=1)
-        print(stories.get_shape())
-        print(queries.get_shape())
+        # print(stories.get_shape())
+        # print(queries.get_shape())
         with tf.variable_scope(self._name):
             story_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, stories)
             query_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, queries)
-            print(story_embedding.get_shape())
-            print(query_embedding.get_shape())
+            # print(story_embedding.get_shape())
+            # print(query_embedding.get_shape())
 
             # real sequence length - without padding
             sequence_length = get_sequence_length(story_embedding)
@@ -136,8 +140,8 @@ class EntNetDialog(object):
             story_embedding = tf.reshape(story_embedding, [-1, self._memory_size, self._sentence_size, self._embedding_size])
             encoded_story = self.get_input_encoding(story_embedding, 'StoryEncoding')
             encoded_query = self.get_input_encoding(query_embedding, 'QueryEncoding')
-            print(encoded_story.get_shape())
-            print(encoded_query.get_shape())
+            # print(encoded_story.get_shape())
+            # print(encoded_query.get_shape())
 
             # Memory Module
             # We define the keys outside of the cell so they may be used for state initialization.
@@ -183,22 +187,22 @@ class EntNetDialog(object):
             # Weight memories by attention vectors
             u = tf.reduce_sum(last_state * attention, reduction_indices=[1])
 
-            # R acts as the decoder matrix to convert from internal state to the output vocabulary size
             H = tf.get_variable('H', [self._embedding_size, self._embedding_size])
 
             q = tf.squeeze(encoded_query, squeeze_dims=[1])
 
-            # candidates_emb = tf.nn.embedding_lookup(self.output_embedding_masked, self._candidates)
-            candidates_emb = tf.nn.embedding_lookup(self.input_embedding_masked, self._candidates)
+            candidates_emb = tf.nn.embedding_lookup(self.output_embedding_masked, self._candidates)
             candidates_emb_sum = tf.reduce_sum(candidates_emb, 1)
 
             y = tf.matmul(self._activation(q + tf.matmul(u, H)), tf.transpose(candidates_emb_sum))
-
             return y
 
     def get_loss(self, output):
-        loss_op = tf.contrib.losses.sparse_softmax_cross_entropy(output, self._answers)
-        return loss_op
+        # loss_op = tf.contrib.losses.sparse_softmax_cross_entropy(output, self._answers)
+        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output, labels=self._answers,
+                                                                       name="cross_entropy")
+        cross_entropy_mean = tf.reduce_mean(cross_entropy, name="cross_entropy_mean")
+        return cross_entropy_mean
 
     def get_train_op(self, loss):
         global_step = tf.contrib.framework.get_or_create_global_step()
