@@ -112,10 +112,10 @@ class EntNetDialog(object):
             input_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._vocab_size)], dtype=tf.float32,
                                                shape=[self._vocab_size, 1])
             self.input_embedding_masked = input_embedding * input_embedding_mask
-            output_embedding = tf.get_variable('output_embedding', [self._candidates_size, self._embedding_size])
-            output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._candidates_size)], dtype=tf.float32,
-                                                shape=[self._candidates_size, 1])
-            self.output_embedding_masked = output_embedding * output_embedding_mask
+            # output_embedding = tf.get_variable('output_embedding', [self._candidates_size, self._embedding_size])
+            # output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._candidates_size)], dtype=tf.float32,
+            #                                     shape=[self._candidates_size, 1])
+            # self.output_embedding_masked = output_embedding * output_embedding_mask
 
     def _inference(self, stories, queries):
         # stories = tf.Print(stories, [stories], message="Story: ")
@@ -188,7 +188,8 @@ class EntNetDialog(object):
 
             q = tf.squeeze(encoded_query, squeeze_dims=[1])
 
-            candidates_emb = tf.nn.embedding_lookup(self.output_embedding_masked, self._candidates)
+            # candidates_emb = tf.nn.embedding_lookup(self.output_embedding_masked, self._candidates)
+            candidates_emb = tf.nn.embedding_lookup(self.input_embedding_masked, self._candidates)
             candidates_emb_sum = tf.reduce_sum(candidates_emb, 1)
 
             y = tf.matmul(self._activation(q + tf.matmul(u, H)), tf.transpose(candidates_emb_sum))
