@@ -4,10 +4,6 @@ import argparse
 import pickle as pkl
 import numpy as np
 import tensorflow as tf
-
-import data.data_utils as data_utils
-import models.entnet as entnet
-
 from sklearn import metrics
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -15,6 +11,8 @@ tf.logging.set_verbosity(tf.logging.INFO)
 # fix relative import
 PROJECT_DIR = os.path.dirname(os.path.realpath(__file__)).rsplit('/', 2)[0]
 sys.path.append(PROJECT_DIR)
+import data.data_utils as data_utils
+import models.entnet as entnet
 
 DATA_DIR = PROJECT_DIR + '/data/dialog-bAbI-tasks/'
 P_DATA_DIR = PROJECT_DIR + '/data/processed/'
