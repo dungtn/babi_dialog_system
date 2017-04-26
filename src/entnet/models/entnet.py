@@ -96,9 +96,9 @@ class EntNetDialog(object):
 
         init_op = tf.global_variables_initializer()
         self._sess = session
+        self._summary_writer = tf.summary.FileWriter('./tf_log', self._sess.graph)
         self._sess.run(init_op)
         self.saver = tf.train.Saver(max_to_keep=1)
-        self._summary_writer = tf.train.SummaryWriter('/tf_log', self._sess.graph_def)
 
     def _build_inputs(self):
         self._stories = tf.placeholder(tf.int32, [None, None, self._sentence_size], name="stories")
@@ -153,12 +153,12 @@ class EntNetDialog(object):
             # Output Module
             output = self.get_output(last_state, encoded_query)
 
-            tf.contrib.layers.summarize_tensor(sequence_length, 'sequence_length')
-            tf.contrib.layers.summarize_tensor(encoded_story, 'encoded_story')
-            tf.contrib.layers.summarize_tensor(encoded_query, 'encoded_query')
-            tf.contrib.layers.summarize_tensor(last_state, 'last_state')
-            tf.contrib.layers.summarize_tensor(output, 'output')
-            tf.contrib.layers.summarize_variables()
+            tf.summary.tensor_summary('sequence_length', sequence_length)
+            tf.summary.tensor_summary('encoded_story', encoded_story)
+            tf.summary.tensor_summary('encoded_query', encoded_query)
+            tf.summary.tensor_summary('last_state', last_state)
+            tf.summary.tensor_summary('output', output)
+            tf.summary.merge_all()
 
             return output
 
