@@ -17,7 +17,7 @@ class EntNetDialog(object):
     def __init__(self, batch_size, vocab_size, memory_size, candidates_size, sentence_size, num_blocks, embedding_size,
                  candidates_vec,
                  clip_gradients=40.0,
-                 learning_rate_init=1e-2,
+                 learning_rate_init=1e-3,
                  learning_rate_decay_rate=0.5,
                  learning_rate_decay_steps=25,
                  session=tf.Session(),
@@ -98,24 +98,21 @@ class EntNetDialog(object):
         self._sess = session
         self._sess.run(init_op)
         self.saver = tf.train.Saver(max_to_keep=1)
+        self._summary_writer = tf.train.SummaryWriter('/tf_log', self._sess.graph_def)
 
     def _build_inputs(self):
-        self._stories = tf.placeholder(tf.int32, [None, self._memory_size * self._sentence_size], name="stories")
+        self._stories = tf.placeholder(tf.int32, [None, None, self._sentence_size], name="stories")
         self._queries = tf.placeholder(tf.int32, [None, 1, self._sentence_size], name="queries")
         self._answers = tf.placeholder(tf.int32, [None], name="answers")
 
     def _build_vars(self):
-        with tf.variable_scope(self._name):
+        with tf.variable_scope(self._name, initializer=self._normal_init):
             # Embeddings
             # The embedding mask forces the special "pad" embedding to zeros.
             input_embedding = tf.get_variable('input_embedding', [self._vocab_size, self._embedding_size])
             input_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._vocab_size)], dtype=tf.float32,
                                                shape=[self._vocab_size, 1])
             self.input_embedding_masked = input_embedding * input_embedding_mask
-            # output_embedding = tf.get_variable('output_embedding', [self._candidates_size, self._embedding_size])
-            # output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._candidates_size)], dtype=tf.float32,
-            #                                     shape=[self._candidates_size, 1])
-            # self.output_embedding_masked = output_embedding * output_embedding_mask
             output_embedding = tf.get_variable('output_embedding', [self._vocab_size, self._embedding_size])
             output_embedding_mask = tf.constant([0 if i == 0 else 1 for i in range(self._vocab_size)], dtype=tf.float32,
                                                 shape=[self._vocab_size, 1])
@@ -123,21 +120,15 @@ class EntNetDialog(object):
 
     def _inference(self, stories, queries):
         # stories = tf.Print(stories, [stories], message="Story: ")
-        # queries = tf.expand_dims(queries, axis=1)
         # print(stories.get_shape())
         # print(queries.get_shape())
-        with tf.variable_scope(self._name):
+        with tf.variable_scope(self._name, initializer=self._normal_init):
             story_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, stories)
             query_embedding = tf.nn.embedding_lookup(self.input_embedding_masked, queries)
             # print(story_embedding.get_shape())
             # print(query_embedding.get_shape())
 
-            # real sequence length - without padding
-            sequence_length = get_sequence_length(story_embedding)
-            # sequence_length = tf.Print(sequence_length, [sequence_length], message="Sequence length: ")
-
             # Input Module
-            story_embedding = tf.reshape(story_embedding, [-1, self._memory_size, self._sentence_size, self._embedding_size])
             encoded_story = self.get_input_encoding(story_embedding, 'StoryEncoding')
             encoded_query = self.get_input_encoding(query_embedding, 'QueryEncoding')
             # print(encoded_story.get_shape())
@@ -147,6 +138,7 @@ class EntNetDialog(object):
             # We define the keys outside of the cell so they may be used for state initialization.
             keys = [tf.get_variable('key_{}'.format(j), [self._embedding_size]) for j in range(self._num_blocks)]
 
+            sequence_length = get_sequence_length(encoded_query)
             cell = DynamicMemoryCell(self._num_blocks, self._embedding_size, keys,
                                      initializer=self._normal_init,
                                      activation=self._activation)
@@ -160,6 +152,14 @@ class EntNetDialog(object):
 
             # Output Module
             output = self.get_output(last_state, encoded_query)
+
+            tf.contrib.layers.summarize_tensor(sequence_length, 'sequence_length')
+            tf.contrib.layers.summarize_tensor(encoded_story, 'encoded_story')
+            tf.contrib.layers.summarize_tensor(encoded_query, 'encoded_query')
+            tf.contrib.layers.summarize_tensor(last_state, 'last_state')
+            tf.contrib.layers.summarize_tensor(output, 'output')
+            tf.contrib.layers.summarize_variables()
+
             return output
 
     def get_input_encoding(self, embedding, scope=None):
@@ -215,7 +215,10 @@ class EntNetDialog(object):
             staircase=True)
 
         tf.contrib.layers.summarize_tensor(learning_rate, tag='learning_rate')
-        train_op = tf.contrib.layers.optimize_loss(loss, global_step=global_step, learning_rate=learning_rate, optimizer='Adam', clip_gradients=self._clip_gradients)
+        train_op = tf.contrib.layers.optimize_loss(loss, global_step=global_step, learning_rate=learning_rate,
+                                                   optimizer='Adam', clip_gradients=self._clip_gradients)
+        # train_op = tf.train.AdamOptimizer(learning_rate=1e-3, epsilon=1e-8).minimize(loss)
+        tf.contrib.layers.summarize_tensor(learning_rate, tag='learning_rate')
         return train_op
 
     def batch_fit(self, stories, queries, answers):
@@ -230,10 +233,10 @@ class EntNetDialog(object):
             loss: floating-point number, the loss computed for the batch
         """
         self._batch_size = len(stories)
-        flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
+        # flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
         expanded_queries = np.expand_dims(queries, axis=1)
-        feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries, self._answers: answers}
-        # feed_dict = {self._stories: stories, self._queries: queries, self._answers: answers}
+        # feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries, self._answers: answers}
+        feed_dict = {self._stories: stories, self._queries: expanded_queries, self._answers: answers}
         loss, _ = self._sess.run([self.loss_op, self.train_op], feed_dict=feed_dict)
         return loss
 
@@ -248,8 +251,8 @@ class EntNetDialog(object):
             answers: Tensor (None, vocab_size)
         """
         self._batch_size = len(stories)
-        flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
+        # flatten_stories = np.asarray(stories).reshape(self._batch_size, -1)
         expanded_queries = np.expand_dims(queries, axis=1)
-        feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries}
-        # feed_dict = {self._stories: stories, self._queries: queries}
+        # feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries}
+        feed_dict = {self._stories: stories, self._queries: expanded_queries}
         return self._sess.run(self.predict_op, feed_dict=feed_dict)

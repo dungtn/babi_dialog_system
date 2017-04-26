@@ -1,30 +1,28 @@
-import os, sys
-
-# fix relative import
-PROJECT_DIR = os.path.dirname(os.path.realpath(__file__)).rsplit('/', 2)[0]
-sys.path.append(PROJECT_DIR)
+import os
+import sys
+import argparse
+import pickle as pkl
+import numpy as np
+import tensorflow as tf
 
 import data.data_utils as data_utils
 import models.entnet as entnet
 
 from sklearn import metrics
-import numpy as np
 
-import argparse
+tf.logging.set_verbosity(tf.logging.INFO)
 
-import tensorflow as tf
-
-import pickle as pkl
-import sys
-
+# fix relative import
+PROJECT_DIR = os.path.dirname(os.path.realpath(__file__)).rsplit('/', 2)[0]
+sys.path.append(PROJECT_DIR)
 
 DATA_DIR = PROJECT_DIR + '/data/dialog-bAbI-tasks/'
 P_DATA_DIR = PROJECT_DIR + '/data/processed/'
 BATCH_SIZE = 32
-CKPT_DIR= 'ckpt/'
+CKPT_DIR = PROJECT_DIR + '/ckpt/'
 
 
-def batch_predict(model, S,Q,n, batch_size):
+def batch_predict(model, S, Q, n, batch_size):
     preds = []
     for start in range(0, n, batch_size):
         end = start + batch_size
@@ -37,9 +35,11 @@ def batch_predict(model, S,Q,n, batch_size):
 
 def prepare_data(args, task_id):
     # get candidates (restaurants)
-    candidates, candid2idx, idx2candid = data_utils.load_candidates(task_id=task_id, candidates_f=DATA_DIR+'dialog-babi-candidates.txt')
+    candidates, candid2idx, idx2candid = data_utils.load_candidates(task_id=task_id,
+                                                                    candidates_f=DATA_DIR + 'dialog-babi-candidates.txt')
     # get data
-    train, test, val = data_utils.load_dialog_task(data_dir=DATA_DIR, task_id=task_id, candid_dic=candid2idx, isOOV=False)
+    train, test, val = data_utils.load_dialog_task(data_dir=DATA_DIR, task_id=task_id, candid_dic=candid2idx,
+                                                   isOOV=False)
     # get metadata
     metadata = data_utils.build_vocab(train + test + val, candidates)
 
@@ -56,23 +56,23 @@ def prepare_data(args, task_id):
     # save metadata to disk
     metadata['candid2idx'] = candid2idx
     metadata['idx2candid'] = idx2candid
-    
+
     with open(P_DATA_DIR + str(task_id) + '.metadata.pkl', 'wb') as f:
         pkl.dump(metadata, f)
 
 
 def parse_args(args):
     parser = argparse.ArgumentParser(
-            description='Train Model for Goal Oriented Dialog Task : bAbI(6)')
+        description='Train Model for Goal Oriented Dialog Task : bAbI(6)')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-i', '--infer', action='store_true',
-                        help='perform inference in an interactive session')
+                       help='perform inference in an interactive session')
     group.add_argument('--ui', action='store_true',
-                        help='interact through web app(flask); do not call this from cmd line')
+                       help='interact through web app(flask); do not call this from cmd line')
     group.add_argument('-t', '--train', action='store_true',
-                        help='train model')
+                       help='train model')
     group.add_argument('-d', '--prep_data', action='store_true',
-                        help='prepare data')
+                       help='prepare data')
     parser.add_argument('--task_id', required=False, type=int, default=1,
                         help='Task Id in bAbI (6) tasks {1-6}')
     parser.add_argument('--batch_size', required=False, type=int, default=16,
@@ -90,7 +90,6 @@ def parse_args(args):
 
 
 class InteractiveSession():
-
     def __init__(self, model, idx2candid, w2idx, n_cand, memory_size):
         self.context = []
         self.u = None
@@ -112,26 +111,26 @@ class InteractiveSession():
         else:
             u = data_utils.tokenize(line)
             data = [(self.context, u, -1)]
-            s, q, a = data_utils.vectorize_data(data, 
-                    self.w2idx, 
-                    self.model._sentence_size, 
-                    1, 
-                    self.n_cand, 
-                    self.memory_size)
-            preds = self.model.predict(s,q)
+            s, q, a = data_utils.vectorize_data(data,
+                                                self.w2idx,
+                                                self.model._sentence_size,
+                                                1,
+                                                self.n_cand,
+                                                self.memory_size)
+            preds = self.model.predict(s, q)
             r = self.idx2candid[preds[0]]
             reply_msg = r
             r = data_utils.tokenize(r)
             u.append('$u')
-            u.append('#'+str(self.nid))
+            u.append('#' + str(self.nid))
             r.append('$r')
-            r.append('#'+str(self.nid))
+            r.append('#' + str(self.nid))
             self.context.append(u)
             self.context.append(r)
-            self.nid+=1
+            self.nid += 1
         return reply_msg
 
-                   
+
 def main(args):
     # parse args
     args = parse_args(args)
@@ -139,7 +138,7 @@ def main(args):
     # prepare data
     if args['prep_data']:
         print('\n>> Preparing Data\n')
-        for i in range(1,7):
+        for i in range(1, 7):
             print(' TASK#{}\n'.format(i))
             prepare_data(args, task_id=i)
         sys.exit()
@@ -172,15 +171,15 @@ def main(args):
 
     # create model
     model = entnet.EntNetDialog(
-                batch_size=BATCH_SIZE,
-                vocab_size=vocab_size,
-                memory_size=memory_size,
-                sentence_size=sentence_size,
-                candidates_size=n_cand,
-                num_blocks=args['num_blocks'],
-                embedding_size=100,
-                candidates_vec=candidates_vec,
-            )
+        batch_size=BATCH_SIZE,
+        vocab_size=vocab_size,
+        memory_size=memory_size,
+        sentence_size=sentence_size,
+        candidates_size=n_cand,
+        num_blocks=args['num_blocks'],
+        embedding_size=100,
+        candidates_vec=candidates_vec,
+    )
     # gather data in batches
     train, val, test, batches = data_utils.get_batches(train, val, test, metadata, batch_size=BATCH_SIZE)
 
@@ -194,21 +193,30 @@ def main(args):
         # write log to file
         log_handle = open('log/' + args['log_file'], 'w')
         cost_total = 0.
-        for i in range(epochs+1):
+        for i in range(epochs + 1):
 
             for start, end in batches:
                 s = train['s'][start:end]
+                # seq_len = []
+                # for story in s:
+                #     count = 0
+                #     for sent in story:
+                #         if sum(sent) > 0:
+                #             count += 1
+                #     seq_len.append(count)
+                # print(seq_len)
                 q = train['q'][start:end]
                 a = train['a'][start:end]
                 cost_total += model.batch_fit(s, q, a)
-            
-            if i%eval_interval == 0 and i:
+
+            if i % eval_interval == 0 and i:
                 train_preds = batch_predict(model, train['s'], train['q'], len(train['s']), batch_size=BATCH_SIZE)
                 val_preds = batch_predict(model, val['s'], val['q'], len(val['s']), batch_size=BATCH_SIZE)
                 train_acc = metrics.accuracy_score(np.array(train_preds), train['a'])
                 val_acc = metrics.accuracy_score(val_preds, val['a'])
                 print('Epoch[{}] : <ACCURACY>\n\ttraining : {} \n\tvalidation : {}'.format(i, train_acc, val_acc))
-                log_handle.write('{} {} {} {}\n'.format(i, train_acc, val_acc, cost_total/(eval_interval*len(batches))))
+                log_handle.write(
+                    '{} {} {} {}\n'.format(i, train_acc, val_acc, cost_total / (eval_interval * len(batches))))
                 cost_total = 0.  # empty cost
                 # save the best model, to disk
                 # if val_acc > best_validation_accuracy:
@@ -217,21 +225,21 @@ def main(args):
         # close file
         log_handle.close()
 
-    else: # inference
+    else:  # inference
         ###
         # restore checkpoint
-        ckpt = tf.train.get_checkpoint_state(CKPT_DIR + str(args['task_id']) )
+        ckpt = tf.train.get_checkpoint_state(CKPT_DIR + str(args['task_id']))
         if ckpt and ckpt.model_checkpoint_path:
             print('\n>> restoring checkpoint from', ckpt.model_checkpoint_path)
             model.saver.restore(model._sess, ckpt.model_checkpoint_path)
-        #  interactive(model, idx2candid, w2idx, sentence_size, BATCH_SIZE, n_cand, memory_size)
+        # interactive(model, idx2candid, w2idx, sentence_size, BATCH_SIZE, n_cand, memory_size)
 
         # create an interactive session instance
         isess = InteractiveSession(model, idx2candid, w2idx, n_cand, memory_size)
-        
+
         if args['infer']:
             query = ''
-            while query!= 'exit':
+            while query != 'exit':
                 query = input('>> ')
                 print('>> ' + isess.reply(query))
         elif args['ui']:
@@ -241,4 +249,4 @@ def main(args):
 # _______MAIN_______
 if __name__ == '__main__':
     main(sys.argv[1:])
-    #main(['--infer', '--task_id=1'])
+    # main(['--infer', '--task_id=1'])
