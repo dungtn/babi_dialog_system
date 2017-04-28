@@ -4,10 +4,6 @@ import argparse
 import pickle as pkl
 import numpy as np
 import tensorflow as tf
-
-import data.data_utils as data_utils
-import models.entnet as entnet
-
 from sklearn import metrics
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -15,6 +11,9 @@ tf.logging.set_verbosity(tf.logging.INFO)
 # fix relative import
 PROJECT_DIR = os.path.dirname(os.path.realpath(__file__)).rsplit('/', 2)[0]
 sys.path.append(PROJECT_DIR)
+
+import data.data_utils as data_utils
+import models.entnet as entnet
 
 DATA_DIR = PROJECT_DIR + '/data/dialog-bAbI-tasks/'
 P_DATA_DIR = PROJECT_DIR + '/data/processed/'
@@ -75,11 +74,11 @@ def parse_args(args):
                        help='prepare data')
     parser.add_argument('--task_id', required=False, type=int, default=1,
                         help='Task Id in bAbI (6) tasks {1-6}')
-    parser.add_argument('--batch_size', required=False, type=int, default=16,
+    parser.add_argument('--batch_size', required=False, type=int, default=32,
                         help='you know what batch size means!')
-    parser.add_argument('--epochs', required=False, type=int, default=200,
+    parser.add_argument('--epochs', required=False, type=int, default=50,
                         help='num iteration of training over train set')
-    parser.add_argument('--num_blocks', required=False, type=int, default=20,
+    parser.add_argument('--num_blocks', required=False, type=int, default=50,
                         help='num of memory blocks')
     parser.add_argument('--eval_interval', required=False, type=int, default=5,
                         help='num iteration of training over train set')
@@ -179,6 +178,7 @@ def main(args):
         num_blocks=args['num_blocks'],
         embedding_size=100,
         candidates_vec=candidates_vec,
+        learning_rate_decay_steps=25*(len(train) // BATCH_SIZE)*BATCH_SIZE 
     )
     # gather data in batches
     train, val, test, batches = data_utils.get_batches(train, val, test, metadata, batch_size=BATCH_SIZE)

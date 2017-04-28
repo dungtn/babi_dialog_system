@@ -17,7 +17,7 @@ class EntNetDialog(object):
     def __init__(self, batch_size, vocab_size, memory_size, candidates_size, sentence_size, num_blocks, embedding_size,
                  candidates_vec,
                  clip_gradients=40.0,
-                 learning_rate_init=1e-3,
+                 learning_rate_init=1e-2,
                  learning_rate_decay_rate=0.5,
                  learning_rate_decay_steps=25,
                  session=tf.Session(),
@@ -68,7 +68,7 @@ class EntNetDialog(object):
         self._clip_gradients = clip_gradients
         self._learning_rate_init = learning_rate_init
         self._learning_rate_decay_rate = learning_rate_decay_rate
-        self._learning_rate_decay_steps = learning_rate_decay_steps * self._batch_size * 1000
+        self._learning_rate_decay_steps = learning_rate_decay_steps
         self._name = name
         self.saver = None
 
@@ -164,7 +164,8 @@ class EntNetDialog(object):
 
     def get_input_encoding(self, embedding, scope=None):
         with tf.variable_scope(scope, 'Encoding', initializer=tf.constant_initializer(1.0)):
-            positional_mask = tf.get_variable('positional_mask', [self._sentence_size, 1])
+            _, _, max_sentence_length, _ = embedding.get_shape().as_list()
+            positional_mask = tf.get_variable('positional_mask', [max_sentence_length, 1])
             encoded_input = tf.reduce_sum(embedding * positional_mask, reduction_indices=[2])
             return encoded_input
 
