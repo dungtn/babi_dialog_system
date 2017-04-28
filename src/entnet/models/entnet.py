@@ -158,7 +158,6 @@ class EntNetDialog(object):
             tf.summary.tensor_summary('encoded_query', encoded_query)
             tf.summary.tensor_summary('last_state', last_state)
             tf.summary.tensor_summary('output', output)
-            tf.summary.merge_all()
 
             return output
 
@@ -199,7 +198,6 @@ class EntNetDialog(object):
             return y
 
     def get_loss(self, output):
-        # loss_op = tf.contrib.losses.sparse_softmax_cross_entropy(output, self._answers)
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output, labels=self._answers,
                                                                        name="cross_entropy")
         cross_entropy_mean = tf.reduce_mean(cross_entropy, name="cross_entropy_mean")
@@ -215,11 +213,11 @@ class EntNetDialog(object):
             global_step=global_step,
             staircase=True)
 
-        tf.contrib.layers.summarize_tensor(learning_rate, tag='learning_rate')
         train_op = tf.contrib.layers.optimize_loss(loss, global_step=global_step, learning_rate=learning_rate,
                                                    optimizer='Adam', clip_gradients=self._clip_gradients)
         # train_op = tf.train.AdamOptimizer(learning_rate=1e-3, epsilon=1e-8).minimize(loss)
-        tf.contrib.layers.summarize_tensor(learning_rate, tag='learning_rate')
+        tf.summary.scalar('loss', loss)
+        tf.summary.scalar('learning_rate', learning_rate)
         return train_op
 
     def batch_fit(self, stories, queries, answers):
@@ -238,7 +236,9 @@ class EntNetDialog(object):
         expanded_queries = np.expand_dims(queries, axis=1)
         # feed_dict = {self._stories: flatten_stories, self._queries: expanded_queries, self._answers: answers}
         feed_dict = {self._stories: stories, self._queries: expanded_queries, self._answers: answers}
-        loss, _ = self._sess.run([self.loss_op, self.train_op], feed_dict=feed_dict)
+        merged = tf.summary.merge_all()
+        loss, _, summary = self._sess.run([self.loss_op, self.train_op, merged], feed_dict=feed_dict)
+        self._summary_writer.add_summary(summary, global_step=6024)
         return loss
 
     def predict(self, stories, queries):
